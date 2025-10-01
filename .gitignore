@@ -1,0 +1,59 @@
+# Dependencies
+node_modules/
+
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Runtime data / pids
+pids
+*.pid
+*.pid.lock
+
+# Coverage reports
+coverage/
+.nyc_output/
+
+# Build artifacts (add if you start building bundles)
+dist/
+build/
+
+# TypeScript cache (if added later)
+*.tsbuildinfo
+
+# Environment variable files (keep example)
+.env
+.env.*
+!.env.example
+
+# Puppeteer / Chromium local caches (if any)
+.local-chromium/
+.cache/
+puppeteer-profile-
+
+# Screenshots (generated output). Remove this line if you want them versioned.
+screenshots/
+
+# OS / Editor files
+.DS_Store
+.idea/
+.vscode/
+*.swp
+
+# Temporary files
+tmp/
+temp/
+
+# Docker artifacts
+*.tar
+
+# Node REPL history
+.node_repl_history
+
+# Misc
+*.tgz
+package-lock.json.*
