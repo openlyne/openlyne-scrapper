@@ -347,11 +347,64 @@ npm test
 
 ### Docker
 
-Build & run:
+Build (production image):
 
 ```bash
 docker build -t openlyne-scrapper .
-docker run -p 3000:3000 --env API_KEY=secret123 openlyne-scrapper
+```
+
+Run container (exposes 3000):
+
+```bash
+docker run --rm -p 3000:3000 -e API_KEY=secret123 openlyne-scrapper
+```
+
+Test health:
+
+```bash
+curl -s http://localhost:3000/health | jq
+```
+
+Test scrape (auth header required if API_KEY set):
+
+```bash
+curl -s -X POST http://localhost:3000/scrape \
+  -H "Authorization: Bearer secret123" \
+  -H "Content-Type: application/json" \
+  -d '{"urls":["https://example.com"],"format":"text","screenshot":false}' | jq '.results[0] | {url,elapsedSeconds,contentFormat,(.content|length) as $l | length: $l}'
+```
+
+If port 3000 is busy, map a different host port:
+
+```bash
+docker run --rm -p 3010:3000 -e API_KEY=secret123 openlyne-scrapper
+```
+
+Notes:
+
+- Image installs required Alpine packages for Chromium so Puppeteer works out-of-the-box.
+- Runs as a non-root user `pptr` for better security.
+- Includes a `HEALTHCHECK` hitting `/health` (Docker marks container unhealthy if endpoint fails).
+- Set `LOG_LEVEL=debug` for more verbose logs during diagnosis.
+- To reduce image size further you can multi-stage build with `npm ci --omit=dev` and prune locales/fonts.
+
+Example docker-compose service:
+
+```yaml
+services:
+  openlyne-scrapper:
+    build: .
+    environment:
+      API_KEY: ${API_KEY:-secret123}
+      LOG_LEVEL: info
+    ports:
+      - "3000:3000"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
 ```
 
 ### Future Improvements
@@ -372,6 +425,40 @@ or skip dev tooling entirely in production builds:
 
 ```bash
 npm install --omit=dev
+```
+
+### Puppeteer Chromium Launch Issues
+
+If you see an error like:
+
+```text
+Failed to launch the browser process! spawn /root/.cache/puppeteer/.../chrome ENOENT
+```
+
+It means Puppeteer attempted to use a cached/bundled Chromium binary that is not present in the container. This image installs system Chromium via Alpine packages and sets `PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium-browser`.
+
+Fix checklist:
+
+- Ensure the container includes `chromium` (already in Dockerfile).
+- Verify env var: `echo $PUPPETEER_EXECUTABLE_PATH` inside container.
+- Confirm binary exists: `docker exec <ctr> ls -l /usr/bin/chromium-browser` (or `/usr/bin/chromium`).
+- The code resolves a valid path and adds hardened flags (`--no-sandbox`, `--disable-dev-shm-usage`, etc.).
+
+If running in a restricted environment (some PaaS) you may need to add or remove flags:
+
+- Remove `--single-process` (not currently used) if you introduce it and get crashes.
+- If sandboxing is supported, you can drop `--no-sandbox` and `--disable-setuid-sandbox` for extra security.
+
+Override executable path manually:
+
+```bash
+docker run -e PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium -p 3000:3000 openlyne-scrapper
+```
+
+If you still encounter missing shared libraries, install additional packages (example):
+
+```bash
+apk add --no-cache libstdc++ mesa-libgbm
 ```
 
 ## License

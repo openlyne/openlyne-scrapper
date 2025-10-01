@@ -3,9 +3,54 @@ const logger = require('../logger');
 const config = require('../config');
 
 let browserPromise;
+function resolveExecutablePath() {
+  const fs = require('fs');
+  const candidates = [
+    process.env.PUPPETEER_EXECUTABLE_PATH,
+    '/usr/bin/chromium-browser',
+    '/usr/bin/chromium',
+    '/usr/lib/chromium/chrome'
+  ].filter(Boolean);
+  for (const p of candidates) {
+    try { if (fs.existsSync(p)) return p; } catch (_) { /* ignore */ }
+  }
+  return undefined; // Let puppeteer try its bundled path if present
+}
+
+function launchOptions() {
+  const executablePath = resolveExecutablePath();
+  const args = [
+    '--no-sandbox',
+    '--disable-setuid-sandbox',
+    '--disable-dev-shm-usage', // uses /tmp instead of /dev/shm
+    '--disable-gpu',
+    '--no-zygote',
+    '--no-first-run',
+    '--disable-background-networking',
+    '--disable-background-timer-throttling',
+    '--disable-client-side-phishing-detection',
+    '--disable-default-apps',
+    '--disable-dev-tools',
+    '--disable-features=site-per-process,TranslateUI',
+    '--disable-hang-monitor',
+    '--disable-notifications',
+    '--disable-popup-blocking',
+    '--disable-prompt-on-repost',
+    '--disable-sync',
+    '--metrics-recording-only',
+    '--mute-audio',
+    '--no-default-browser-check'
+  ];
+  return {
+    headless: config.headless !== false, // ensure boolean
+    executablePath,
+    args
+  };
+}
+
 async function getBrowser() {
   if (!browserPromise) {
-    browserPromise = puppeteer.launch({ headless: config.headless });
+    browserPromise = puppeteer.launch(launchOptions());
     const browser = await browserPromise;
     browser.on('disconnected', () => {
       logger.warn('Browser disconnected');
